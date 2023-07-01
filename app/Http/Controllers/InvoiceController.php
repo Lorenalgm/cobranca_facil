@@ -8,6 +8,9 @@ use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
 use League\Csv\Reader;
+use Resend;
+use Resend\Client;
+
 
 class InvoiceController extends Controller
 {
@@ -54,23 +57,23 @@ class InvoiceController extends Controller
                 'debtDueDate' => 'required|date',
                 'debtId' => 'required|string',
             ];
-    
-            $validator = Validator::make(iterator_to_array($csv->getRecords()), $rules);
-
-            if($validator->fails()){
-                return response()->json([
-                    'error' => $validator->errors()
-                ], 400);
-            }
             
             foreach($csv as $invoice){
+                $validator = Validator::make($invoice, $rules);
+
+                if($validator->fails()){
+                    return response()->json([
+                        'error' => $validator->errors()
+                    ], 400);
+                }
+
                 $invoiceData = [
-                    'name' => $invoice['customer_name'],
-                    'governmentId' => $invoice['amount'],
-                    'email' => $invoice['description'],
-                    'debtAmount' => $invoice['description'],
-                    'debtDueDate' => $invoice['description'],
-                    'debtId' => $invoice['description'],
+                    'name' => $invoice['name'],
+                    'government_id' => $invoice['governmentId'],
+                    'email' => $invoice['email'],
+                    'debt_amount' => $invoice['debtAmount'],
+                    'debt_due_date' => $invoice['debtDueDate'],
+                    'debt_id' => $invoice['debtId'],
                 ];
 
                 Invoice::create($invoiceData);
@@ -85,6 +88,46 @@ class InvoiceController extends Controller
             return response()->json([
                 'error' => 'Error. Try again',
                 'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function generateDailyInvoices(){
+        try {
+            $invoices = Invoice::all();
+            // $invoices = Invoice::getInvoicesWithoutBarCode();
+            $count_invoices = 0;
+
+            foreach($invoices as $invoice){
+                $gateway = GatewayController::store($invoice);
+
+                if($gateway){
+                    $invoice->invoice_barcode = $gateway['barcode'];
+                    $invoice->invoice_due_date = $gateway['date'];
+                    $invoice->update();
+
+                    $resend = Resend::client(env('RESEND_API_KEY'));
+
+                    $resend->emails->send([
+                    'from' => 'onboarding@resend.dev',
+                    'to' => $invoice->email,
+                    'subject' => 'Lembrete de pagamento!',
+                    'html' => "<p>Olá, $invoice->name.
+                        Você tem um boleto para pagamento: <strong>$invoice->invoice_barcode</strong>!
+                    </p>"
+                    ]);
+
+                    $count_invoices++;
+                }
+            }
+
+            return response()->json([
+                'message' => $count_invoices.' barcodes created!'
+            ], 200);
+        } catch (Exception $error) {
+            return response()->json([
+                'error' => 'Error. Try again',
+                'message' => $error->getMessage()
             ], 500);
         }
     }

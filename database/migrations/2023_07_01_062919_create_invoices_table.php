@@ -16,11 +16,14 @@ class CreateInvoicesTable extends Migration
         Schema::create('invoices', function (Blueprint $table) {
             $table->id();
             $table->string('name');
-            $table->string('governmentId');
+            $table->string('government_id');
             $table->string('email');
-            $table->decimal('debtAmount', 8, 2);
-            $table->date('debtDueDate');
-            $table->string('debtId');
+            $table->decimal('debt_amount', 8, 2);
+            $table->date('debt_due_date');
+            $table->string('debt_id');
+            $table->string('invoice_barcode')->nullable();
+            $table->string('invoice_due_date')->nullable();
+            $table->date('payment_date')->nullable();
             $table->timestamps();
         });
     }

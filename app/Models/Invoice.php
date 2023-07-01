@@ -11,12 +11,19 @@ class Invoice extends Model
 
     protected $fillable = [
         'name',
-        'governmentId',
+        'government_id',
         'email',
-        'debtAmount',
-        'debtDueDate',
-        'debtId'
+        'debt_amount',
+        'debt_due_date',
+        'debt_id',
+        'invoice_barcode',
+        'invoice_due_date',
+        'payment_date'
     ];
 
     protected $table = 'invoices';
+
+    public static function getInvoicesWithoutBarCode(){
+        return Invoice::whereNull('invoice_barcode')->get();
+    }
 }
