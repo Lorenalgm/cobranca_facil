@@ -94,8 +94,7 @@ class InvoiceController extends Controller
 
     public function generateDailyInvoices(){
         try {
-            $invoices = Invoice::all();
-            // $invoices = Invoice::getInvoicesWithoutBarCode();
+            $invoices = Invoice::getInvoicesWithoutBarCode();
             $count_invoices = 0;
 
             foreach($invoices as $invoice){

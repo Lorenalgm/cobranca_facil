@@ -23,7 +23,9 @@ class CreateInvoicesTable extends Migration
             $table->string('debt_id');
             $table->string('invoice_barcode')->nullable();
             $table->string('invoice_due_date')->nullable();
-            $table->date('payment_date')->nullable();
+            $table->timestamp('paid_at')->nullable();
+            $table->decimal('paid_amount', 8, 2)->nullable();
+            $table->string('paid_by')->nullable();
             $table->timestamps();
         });
     }

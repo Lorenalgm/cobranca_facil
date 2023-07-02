@@ -18,7 +18,9 @@ class Invoice extends Model
         'debt_id',
         'invoice_barcode',
         'invoice_due_date',
-        'payment_date'
+        'paid_at',
+        'paid_amount',
+        'paid_by'
     ];
 
     protected $table = 'invoices';
