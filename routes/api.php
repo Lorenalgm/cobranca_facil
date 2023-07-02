@@ -20,7 +20,6 @@ Route::get('/health_check', function(){
 
 
 Route::middleware('guest')->prefix('v1')->group(function() {
-    Route::get('/daily', 'InvoiceController@generateDailyInvoices');
     Route::get('/invoices', 'InvoiceController@index');
     Route::post('/invoices','InvoiceController@store');
 });
