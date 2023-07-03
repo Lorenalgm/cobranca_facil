@@ -1,4 +1,5 @@
 # Cobrança Fácil
+[![Maintainability](https://api.codeclimate.com/v1/badges/f5dfb0fd4ea4873e15a1/maintainability)](https://codeclimate.com/github/Lorenalgm/cobranca_facil/maintainability)
 
 # Índice
 
