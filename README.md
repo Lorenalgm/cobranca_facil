@@ -1,30 +1,114 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Cobrança Fácil
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+# Índice
 
-## About Laravel
+1. [Cobrança Fácil](#cobrança-fácil)
+   - [Sobre o Projeto](#sobre-o-projeto)
+   - [Como Iniciar o Projeto](#como-iniciar-o-projeto)
+   - [Comandos Úteis](#comandos-úteis)
+   - [Endpoints](#endpoints)
+      - [Health Check](#health-check)
+      - [Invoice (Listagem)](#invoice-listagem)
+      - [Invoice (Criação)](#invoice-criação)
+      - [Daily Invoices](#daily-invoices)
+      - [Webhook](#webhook)
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## Sobre o Projeto
+O Cobrança Fácil é um sistema de cobrança desenvolvido como parte de um desafio. Ele permite:
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+1. Receber uma lista de cobranças de um arquivo CSV via API, contendo informações como nome, CPF, e-mail, valor da dívida, vencimento da dívida e código da dívida
+2. Gerar periodicamente boletos para cobrança e envia e-mails de cobrança para a lista fornecida.
+3. Receber uma comunicação via webhook em formato JSON do banco, informando que um boleto foi pago e liquidado diretamente na conta bancária da empresa. Essa informação é utilizada para atualizar o status do boleto no sistema e realizar a baixa correspondente.
 
-## Learning Laravel
+## Como Iniciar o Projeto
+Siga as etapas abaixo para iniciar o projeto:
 
-php artisan schedule:run
+1. Clone o repositório para o seu ambiente local:
+```bash
+git clone https://github.com/Lorenalgm/cobranca_facil
+```
+2. Acesse o diretório do projeto:
+```bash
+cd cobranca_facil
+```
+3. Crie o arquivo `.env` a partir do arquivo `.env.example`:
+```bash
+cp .env.example .env
+```
+4. Abra o arquivo `.env` e configure as variáveis de ambiente:
+```php
+DB_CONNECTION=pgsql
+DB_HOST=pgsql
+DB_PORT=5432
+DB_DATABASE=cobranca_facil
+DB_USERNAME=sail
+DB_PASSWORD=password
+```
+5. Inicie o projeto com o Docker:
+```bash
+docker-compose up -d
+```
+6. Execute as migrações do banco de dados dentro do contêiner do aplicativo:
+```bash
+docker exec -it cobranca_facil_laravel.test_1 php artisan migrate
+```
+8. O projeto estará disponível em http://localhost:8000.
 
-## License
+## Comandos Úteis
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+Aqui estão alguns comandos úteis que você pode usar neste projeto:
+
+- `php artisan schedule:list`: Lista todos os agendamentos disponíveis.
+- `php artisan schedule:run`: Executa os agendamentos registrados.
+- `php artisan test`: Executa os testes automatizados.
+- `php artisan migrate`: Executa as migrações do banco de dados.
+
+## Endpoints
+
+Neste projeto existem alguns endpoints disponíveis para uso.
+
+Lembre-se de informar um token de autenticação ("xxxxxx" para testes).
+
+Caso utilize Insomnia, você pode importar este [arquivo .json](./Insomnia_2023-07-03.json) com todos os endpoints disponíveis. 
+
+### Health Check
+```
+- Método: GET
+- URL: http://localhost/api/health_check
+```
+Este endpoint é usado para verificar o status de saúde do sistema.
+
+### Invoice (Listagem)
+```
+- Método: GET
+- URL: http://localhost/api/v1/invoices
+- Autenticação: Bearer Token
+```
+Este endpoint retorna uma lista de faturas.
+
+### Invoice (Criação)
+```
+- Método: POST
+- URL: http://localhost/api/v1/invoices
+- Autenticação: Bearer Token
+- Tipo de Conteúdo: multipart/form-data
+```
+Este endpoint é usado para criar uma nova fatura. É necessário fornecer um arquivo CSV.
+
+### Daily Invoices
+```
+- Método: GET
+- URL: http://localhost/api/v1/daily
+- Autenticação: Bearer Token
+```
+Este endpoint retorna as faturas diárias.
+
+### Webhook
+```
+- Método: POST
+- URL: http://localhost:8000/webhook
+- Autenticação: Bearer Token
+- Tipo de Conteúdo: application/json
+```
+Este endpoint é usado para receber notificações de pagamento de boleto via webhook.
