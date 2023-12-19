@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Requests\StoreInvoiceRequest;
+use App\Http\Requests\InvoicesFileRequest;
 use App\Models\Invoice;
 use Exception;
 use Illuminate\Http\JsonResponse;
@@ -29,7 +29,7 @@ class InvoiceController extends Controller
         }
     }
 
-    public function store(StoreInvoiceRequest $request): JsonResponse
+    public function store(InvoicesFileRequest $request): JsonResponse
     {
         $validated = $request->validated();
 
