@@ -3,18 +3,18 @@
 namespace App\Http\Controllers;
 
 use App\Models\Invoice;
-use Illuminate\Support\Facades\Validator;
 use Exception;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Validator;
 use League\Csv\Reader;
 use Resend;
-use Resend\Client;
-
 
 class InvoiceController extends Controller
 {
-    public function index(Request $request)
+    public function index(): JsonResponse
     {
         try {
             $invoices = Invoice::all();
@@ -23,19 +23,21 @@ class InvoiceController extends Controller
         } catch (Exception $error) {
             return response()->json([
                 'error' => 'Error. Try again',
-                'message' => $error->getMessage()
+                'message' => $error->getMessage(),
             ], 500);
         }
     }
-    public function store(Request $request)
+
+    public function store(Request $request): JsonResponse
     {
-        try {            
+        try {
+            /** @var UploadedFile */
             $file = $request->file('csv_file');
+
             $filePath = $file->getRealPath();
             $csv = Reader::createFromPath($filePath, 'r');
             $csv->setHeaderOffset(0);
-            
-            
+
             $rules = [
                 'name' => 'required|string',
                 'governmentId' => 'required|numeric',
@@ -44,13 +46,13 @@ class InvoiceController extends Controller
                 'debtDueDate' => 'required|date',
                 'debtId' => 'required|string',
             ];
-            
-            foreach($csv as $invoice){
+
+            foreach ($csv as $invoice) {
                 $validator = Validator::make($invoice, $rules);
 
-                if($validator->fails()){
+                if ($validator->fails()) {
                     return response()->json([
-                        'error' => $validator->errors()
+                        'error' => $validator->errors(),
                     ], 400);
                 }
 
@@ -69,38 +71,42 @@ class InvoiceController extends Controller
             File::delete($filePath);
 
             return response()->json([
-                'message' => 'CSV uploaded sucessfully'
+                'message' => 'CSV uploaded sucessfully',
             ], 200);
         } catch (Exception $e) {
             return response()->json([
                 'error' => 'Error. Try again',
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
             ], 500);
         }
     }
 
-    public function generateDailyInvoices(){
+    public function generateDailyInvoices(): JsonResponse
+    {
         try {
             $invoices = Invoice::getInvoicesWithoutBarCode();
             $count_invoices = 0;
 
-            foreach($invoices as $invoice){
+            foreach ($invoices as $invoice) {
                 $gateway = GatewayController::store($invoice);
 
-                if($gateway){
+                if ($gateway) {
                     $invoice->invoice_barcode = $gateway['barcode'];
                     $invoice->invoice_due_date = $gateway['date'];
                     $invoice->update();
 
-                    $resend = Resend::client(env('RESEND_API_KEY'));
+                    /** @var string $apiKeyForResendService */
+                    $apiKeyForResendService = env('RESEND_API_KEY');
+
+                    $resend = Resend::client($apiKeyForResendService);
 
                     $resend->emails->send([
-                    'from' => 'onboarding@resend.dev',
-                    'to' => $invoice->email,
-                    'subject' => 'Lembrete de pagamento!',
-                    'html' => "<p>Olá, $invoice->name.
+                        'from' => 'onboarding@resend.dev',
+                        'to' => $invoice->email,
+                        'subject' => 'Lembrete de pagamento!',
+                        'html' => "<p>Olá, $invoice->name.
                         Você tem um boleto para pagamento: <strong>$invoice->invoice_barcode</strong>!
-                    </p>"
+                    </p>",
                     ]);
 
                     $count_invoices++;
@@ -108,12 +114,12 @@ class InvoiceController extends Controller
             }
 
             return response()->json([
-                'message' => $count_invoices.' barcodes created!'
+                'message' => $count_invoices.' barcodes created!',
             ], 200);
         } catch (Exception $error) {
             return response()->json([
                 'error' => 'Error. Try again',
-                'message' => $error->getMessage()
+                'message' => $error->getMessage(),
             ], 500);
         }
     }
