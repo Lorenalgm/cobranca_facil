@@ -29,21 +29,8 @@ class InvoiceController extends Controller
     }
     public function store(Request $request)
     {
-        try {
-            if(!$request->hasFile('csv_file')){
-                return response()->json([
-                    'error' => 'File is required.'
-                ], 400);
-            }
-
+        try {            
             $file = $request->file('csv_file');
-
-            if($file->getClientOriginalExtension() != 'csv'){
-                return response()->json([
-                    'error' => 'Invalid csv file.'
-                ], 400);
-            }
-
             $filePath = $file->getRealPath();
             $csv = Reader::createFromPath($filePath, 'r');
             $csv->setHeaderOffset(0);
