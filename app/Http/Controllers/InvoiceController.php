@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreInvoiceRequest;
 use App\Models\Invoice;
 use Exception;
 use Illuminate\Http\JsonResponse;
@@ -28,8 +29,10 @@ class InvoiceController extends Controller
         }
     }
 
-    public function store(Request $request): JsonResponse
+    public function store(StoreInvoiceRequest $request): JsonResponse
     {
+        $validated = $request->validated();
+
         try {
             /** @var UploadedFile */
             $file = $request->file('csv_file');

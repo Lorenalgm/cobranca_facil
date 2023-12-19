@@ -20,7 +20,7 @@ class StoreInvoiceRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'csv_file' => 'required|file|mimes:csv,txt',
+            'csv_file' => 'required|file|mimetypes:csv,txt',
         ];
     }
 
@@ -31,7 +31,7 @@ class StoreInvoiceRequest extends FormRequest
     {
         return [
             'csv_file.required' => 'File is required.',
-            'csv_file.mimes' => 'Invalid csv file.',
+            'csv_file.mimetypes' => 'Invalid csv file.',
         ];
     }
 }
