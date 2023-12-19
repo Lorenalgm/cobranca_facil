@@ -2,13 +2,16 @@
 
 namespace App\Http\Controllers;
 
+use App\Domain\Invoices\Factories\CreateInvoice;
+use App\Domain\Invoices\Services\CreateInvoicesFromFile;
+use App\Domain\Invoices\Validators\InvoiceValidator;
 use App\Http\Requests\InvoicesFileRequest;
 use App\Models\Invoice;
 use Exception;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Response;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Validator;
 use League\Csv\Reader;
 use Resend;
 
@@ -17,7 +20,7 @@ class InvoiceController extends Controller
     public function index(): JsonResponse
     {
         try {
-            // Must explicitly order
+            // Postgres does not guarantee the order of the records if you don't specify an order by
             $invoices = Invoice::orderBy('id', 'asc')->get();
 
             return response()->json(['invoices' => $invoices]);
@@ -31,57 +34,22 @@ class InvoiceController extends Controller
 
     public function store(InvoicesFileRequest $request): JsonResponse
     {
-        $validated = $request->validated();
+        $request->validated();
 
-        try {
-            /** @var UploadedFile */
-            $file = $request->file('csv_file');
+        /** @var UploadedFile */
+        $file = $request->file('csv_file');
 
-            $filePath = $file->getRealPath();
-            $csv = Reader::createFromPath($filePath, 'r');
-            $csv->setHeaderOffset(0);
+        CreateInvoicesFromFile::process($file);
 
-            $rules = [
-                'name' => 'required|string',
-                'governmentId' => 'required|numeric',
-                'email' => 'required|email',
-                'debtAmount' => 'required|numeric',
-                'debtDueDate' => 'required|date',
-                'debtId' => 'required|string',
-            ];
+        /*
+        * It's a good practice to process as much as possible, instead of throwing and halting
+        * the execution of the script. In this case, we could have a log of the errors and give 
+        * the user a feedback only for the unprocessable invoices.
+        */
 
-            foreach ($csv as $invoice) {
-                $validator = Validator::make($invoice, $rules);
-
-                if ($validator->fails()) {
-                    return response()->json([
-                        'error' => $validator->errors(),
-                    ], 400);
-                }
-
-                $invoiceData = [
-                    'name' => $invoice['name'],
-                    'government_id' => $invoice['governmentId'],
-                    'email' => $invoice['email'],
-                    'debt_amount' => $invoice['debtAmount'],
-                    'debt_due_date' => $invoice['debtDueDate'],
-                    'debt_id' => $invoice['debtId'],
-                ];
-
-                Invoice::create($invoiceData);
-            }
-
-            File::delete($filePath);
-
-            return response()->json([
-                'message' => 'CSV uploaded sucessfully',
-            ], 200);
-        } catch (Exception $e) {
-            return response()->json([
-                'error' => 'Error. Try again',
-                'message' => $e->getMessage(),
-            ], 500);
-        }
+        return response()->json([
+            'message' => 'CSV uploaded sucessfully',
+        ], 200);
     }
 
     public function generateDailyInvoices(): JsonResponse

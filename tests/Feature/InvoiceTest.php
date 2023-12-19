@@ -8,6 +8,8 @@ use Illuminate\Http\Response;
 use Illuminate\Http\Testing\File;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Testing\Fluent\AssertableJson;
+use Iterator;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 class InvoiceTest extends TestCase
@@ -83,7 +85,7 @@ class InvoiceTest extends TestCase
             'csv_file' => $givenFile,
         ]);
 
-        $response->assertStatus(200);
+        $response->assertStatus(Response::HTTP_OK);
 
         $this->assertDatabaseCount(Invoice::class, 2);
 
@@ -104,5 +106,74 @@ class InvoiceTest extends TestCase
             'debt_due_date' => '2023-01-12',
             'debt_id' => '124',
         ]);
+    }
+
+    #[DataProvider('provideInvalidInvoiceData')]
+    public function test_it_fails_when_invoice_data_is_invalid(string $givenContent): void
+    {
+        $givenFile = File::fake()
+            ->createWithContent('upload-teste.csv', $givenContent)
+            ->mimeType('csv');
+
+        $response = $this->withHeaders(['Authorization' => 'Bearer xxxxxx'])->post('api/v1/invoices', [
+            'csv_file' => $givenFile,
+        ]);
+
+        $response->assertStatus(Response::HTTP_UNPROCESSABLE_ENTITY);
+    }
+
+    /**
+     * @return Iterator<array<int, string>>
+     */
+    public function provideInvalidInvoiceData(): Iterator
+    {
+        yield 'all attributes are missing' => [
+            <<<'CSV'
+            name,governmentId,email,debtAmount,debtDueDate,debtId
+            ,,,,,
+            CSV
+        ];
+
+        yield 'name is missing' => [
+            <<<'CSV'
+            name,governmentId,email,debtAmount,debtDueDate,debtId
+            ,1,test@test.com,123,2023-01-01,1
+            CSV
+        ];
+
+        yield 'governmentId is missing' => [
+            <<<'CSV'
+            name,governmentId,email,debtAmount,debtDueDate,debtId
+            some name,,test@test.com,123,2023-01-01,1
+            CSV
+        ];
+
+        yield 'email is missing' => [
+            <<<'CSV'
+            name,governmentId,email,debtAmount,debtDueDate,debtId
+            some name,1,,123,2023-01-01,1
+            CSV
+        ];
+
+        yield 'debtAmount is missing' => [
+            <<<'CSV'
+            name,governmentId,email,debtAmount,debtDueDate,debtId
+            some name,1,test@test.com,,2023-01-01,1
+            CSV
+        ];
+
+        yield 'debtDueDate is missing' => [
+            <<<'CSV'
+            name,governmentId,email,debtAmount,debtDueDate,debtId
+            some name,1,test@test.com,123,,1
+            CSV
+        ];
+
+        yield 'debtId is missing' => [
+            <<<'CSV'
+            name,governmentId,email,debtAmount,debtDueDate,debtId
+            some name,1,test@test.com,123,2023-01-01,
+            CSV
+        ];
     }
 }
