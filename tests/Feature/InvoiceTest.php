@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Invoice;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Response;
+use Illuminate\Http\Testing\File;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Testing\Fluent\AssertableJson;
 use Tests\TestCase;
@@ -16,9 +17,10 @@ class InvoiceTest extends TestCase
     public function test_it_fails_when_file_is_missing(): void
     {
         $response = $this->withHeaders(['Authorization' => 'Bearer xxxxxx'])->postJson('api/v1/invoices', []);
-    
-        $response->assertStatus(Response::HTTP_UNPROCESSABLE_ENTITY);
-        $response->assertJsonValidationErrors(['csv_file' => 'File is required.']);
+
+        $response
+            ->assertJsonValidationErrors(['csv_file' => 'File is required.'])
+            ->assertStatus(Response::HTTP_UNPROCESSABLE_ENTITY);
     }
 
     public function test_it_fails_when_file_type_is_invalid(): void
@@ -27,45 +29,80 @@ class InvoiceTest extends TestCase
             ->postJson('api/v1/invoices', [
                 'csv_file' => UploadedFile::fake()->image('avatar.jpg'),
             ]);
-    
-        $response->assertStatus(Response::HTTP_UNPROCESSABLE_ENTITY);
-        $response->assertJsonValidationErrors(['csv_file' => 'Invalid csv file.']);
+
+        $response
+            ->assertJsonValidationErrors(['csv_file' => 'Invalid csv file.'])
+            ->assertStatus(Response::HTTP_UNPROCESSABLE_ENTITY);
     }
 
-    public function testGetInvoices()
+    public function test_returns_all_invoices(): void
     {
-        Invoice::factory()->count(2)->create();
+        [$firstInvoice, $secondInvoice] = Invoice::factory()->count(2)->create();
 
-        $response = $this->withHeaders([
-            'Authorization' => 'Bearer xxxxxx',
-        ])->get('/api/v1/invoices');
+        $response = $this->withHeaders(['Authorization' => 'Bearer xxxxxx'])->get('/api/v1/invoices');
+
+        $response
+            ->assertStatus(200)
+            ->assertJson(fn (AssertableJson $json) => $json->has('invoices', 2)
+                ->has('invoices.0', fn (AssertableJson $json) => $json
+                    ->where('id', $firstInvoice->id)
+                    ->where('name', $firstInvoice->name)
+                    ->where('government_id', $firstInvoice->government_id)
+                    ->where('email', $firstInvoice->email)
+                    ->where('debt_amount', number_format($firstInvoice->debt_amount, 2))
+                    ->where('debt_due_date', $firstInvoice->debt_due_date)
+                    ->where('debt_id', $firstInvoice->debt_id)
+                    ->etc()
+                )
+                ->has('invoices.1', fn (AssertableJson $json) => $json
+                    ->where('id', $secondInvoice->id)
+                    ->where('name', $secondInvoice->name)
+                    ->where('government_id', $secondInvoice->government_id)
+                    ->where('email', $secondInvoice->email)
+                    ->where('debt_amount', number_format($secondInvoice->debt_amount, 2))
+                    ->where('debt_due_date', $secondInvoice->debt_due_date)
+                    ->where('debt_id', $secondInvoice->debt_id)
+                    ->etc()
+                )
+            );
+    }
+
+    public function test_it_create_invoices_from_file(): void
+    {
+        $givenContent = <<<'CSV'
+        name,governmentId,email,debtAmount,debtDueDate,debtId
+        Pedro,3458077293,lgoesmontes@gmail.com,10000,2022-01-12,123
+        Maria,1258077293,lorena@teste.com,4000,2023-01-12,124
+        CSV;
+
+        $givenFile = File::fake()
+            ->createWithContent('upload-teste.csv', $givenContent)
+            ->mimeType('csv');
+
+        $response = $this->withHeaders(['Authorization' => 'Bearer xxxxxx'])->post('api/v1/invoices', [
+            'csv_file' => $givenFile,
+        ]);
 
         $response->assertStatus(200);
 
-        $response->assertJson(fn (AssertableJson $json) => $json->has(2)
-            ->first(fn (AssertableJson $json) => $json->hasAll(['name', 'government_id', 'email'])
-                ->etc()
-            )
-        );
+        $this->assertDatabaseCount(Invoice::class, 2);
 
-    }
+        $this->assertDatabaseHas(Invoice::class, [
+            'name' => 'Pedro',
+            'government_id' => '3458077293',
+            'email' => 'lgoesmontes@gmail.com',
+            'debt_amount' => 10000,
+            'debt_due_date' => '2022-01-12',
+            'debt_id' => '123',
+        ]);
 
-    public function testCreateInvoices()
-    {
-        $data = [
-            'csv_file' => new \Illuminate\Http\UploadedFile(
-                resource_path('upload-teste.csv'),
-                'test.csv',
-                'text/csv',
-                null,
-                true
-            ),
-        ];
-
-        $response = $this->withHeaders([
-            'Authorization' => 'Bearer xxxxxx',
-        ])->post('api/v1/invoices', $data);
-
-        $response->assertStatus(200);
+        $this->assertDatabaseHas(Invoice::class, [
+            'name' => 'Maria',
+            'government_id' => '1258077293',
+            'email' => 'lorena@teste.com',
+            'debt_amount' => 4000,
+            'debt_due_date' => '2023-01-12',
+            'debt_id' => '124',
+        ]);
     }
 }

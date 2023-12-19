@@ -6,7 +6,6 @@ use App\Http\Requests\StoreInvoiceRequest;
 use App\Models\Invoice;
 use Exception;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Validator;
@@ -18,9 +17,10 @@ class InvoiceController extends Controller
     public function index(): JsonResponse
     {
         try {
-            $invoices = Invoice::all();
+            // Must explicitly order
+            $invoices = Invoice::orderBy('id', 'asc')->get();
 
-            return response()->json($invoices);
+            return response()->json(['invoices' => $invoices]);
         } catch (Exception $error) {
             return response()->json([
                 'error' => 'Error. Try again',
