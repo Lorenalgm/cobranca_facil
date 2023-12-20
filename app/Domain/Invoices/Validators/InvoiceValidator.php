@@ -9,7 +9,7 @@ use Illuminate\Validation\Validator;
 
 final class InvoiceValidator
 {
-    /** @var array<string, string>  $rules */
+    /** @var array<string, string> */
     protected static array $rules = [
         'name' => 'required|string',
         'governmentId' => 'required|numeric',

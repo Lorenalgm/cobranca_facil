@@ -2,17 +2,12 @@
 
 namespace App\Http\Controllers;
 
-use App\Domain\Invoices\Factories\CreateInvoice;
 use App\Domain\Invoices\Services\CreateInvoicesFromFile;
-use App\Domain\Invoices\Validators\InvoiceValidator;
 use App\Http\Requests\InvoicesFileRequest;
 use App\Models\Invoice;
 use Exception;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Response;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\File;
-use League\Csv\Reader;
 use Resend;
 
 class InvoiceController extends Controller
@@ -43,7 +38,7 @@ class InvoiceController extends Controller
 
         /*
         * It's a good practice to process as much as possible, instead of throwing and halting
-        * the execution of the script. In this case, we could have a log of the errors and give 
+        * the execution of the script. In this case, we could have a log of the errors and give
         * the user a feedback only for the unprocessable invoices.
         */
 

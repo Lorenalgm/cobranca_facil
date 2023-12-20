@@ -14,14 +14,14 @@ final class CreateInvoicesFromFile
     /*
      * A better, more scalable and extendable approach for the long run would be to
      * rely on domain events. That way, we could add functionality with ease.
-     * For example, one line of the file fails, we could send an event that could be 
+     * For example, one line of the file fails, we could send an event that could be
      * handled by any number of listeners (one for logging, one for notifiying someone, etc.)
      */
     public static function process(UploadedFile $file): void
     {
         $fileReader = Reader::createFromPath($file->getRealPath(), 'r');
         $fileReader->setHeaderOffset(0);
-        
+
         /**
          * @var array{
          *  name: string,
