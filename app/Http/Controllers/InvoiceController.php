@@ -2,118 +2,77 @@
 
 namespace App\Http\Controllers;
 
+use App\Domain\Invoices\Services\CreateInvoicesFromFile;
+use App\Http\Requests\InvoicesFileRequest;
 use App\Models\Invoice;
-use Illuminate\Support\Facades\Validator;
 use Exception;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\File;
-use League\Csv\Reader;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\UploadedFile;
 use Resend;
-use Resend\Client;
-
 
 class InvoiceController extends Controller
 {
-    public function index(Request $request)
+    public function index(): JsonResponse
     {
         try {
-            $invoices = Invoice::all();
+            // Postgres does not guarantee the order of the records if you don't specify an order by
+            $invoices = Invoice::orderBy('id', 'asc')->get();
 
-            return response()->json($invoices);
+            return response()->json(['invoices' => $invoices]);
         } catch (Exception $error) {
             return response()->json([
                 'error' => 'Error. Try again',
-                'message' => $error->getMessage()
+                'message' => $error->getMessage(),
             ], 500);
         }
     }
-    public function store(Request $request)
+
+    public function store(InvoicesFileRequest $request): JsonResponse
     {
-        try {
-            if(!$request->hasFile('csv_file')){
-                return response()->json([
-                    'error' => 'File is required.'
-                ], 400);
-            }
+        $request->validated();
 
-            $file = $request->file('csv_file');
+        /** @var UploadedFile */
+        $file = $request->file('csv_file');
 
-            if($file->getClientOriginalExtension() != 'csv'){
-                return response()->json([
-                    'error' => 'Invalid csv file.'
-                ], 400);
-            }
+        CreateInvoicesFromFile::process($file);
 
-            $filePath = $file->getRealPath();
-            $csv = Reader::createFromPath($filePath, 'r');
-            $csv->setHeaderOffset(0);
-            
-            
-            $rules = [
-                'name' => 'required|string',
-                'governmentId' => 'required|numeric',
-                'email' => 'required|email',
-                'debtAmount' => 'required|numeric',
-                'debtDueDate' => 'required|date',
-                'debtId' => 'required|string',
-            ];
-            
-            foreach($csv as $invoice){
-                $validator = Validator::make($invoice, $rules);
+        /*
+        * It's a good practice to process as much as possible, instead of throwing and halting
+        * the execution of the script. In this case, we could have a log of the errors and give
+        * the user a feedback only for the unprocessable invoices.
+        */
 
-                if($validator->fails()){
-                    return response()->json([
-                        'error' => $validator->errors()
-                    ], 400);
-                }
-
-                $invoiceData = [
-                    'name' => $invoice['name'],
-                    'government_id' => $invoice['governmentId'],
-                    'email' => $invoice['email'],
-                    'debt_amount' => $invoice['debtAmount'],
-                    'debt_due_date' => $invoice['debtDueDate'],
-                    'debt_id' => $invoice['debtId'],
-                ];
-
-                Invoice::create($invoiceData);
-            }
-
-            File::delete($filePath);
-
-            return response()->json([
-                'message' => 'CSV uploaded sucessfully'
-            ], 200);
-        } catch (Exception $e) {
-            return response()->json([
-                'error' => 'Error. Try again',
-                'message' => $e->getMessage()
-            ], 500);
-        }
+        return response()->json([
+            'message' => 'CSV uploaded sucessfully',
+        ], 200);
     }
 
-    public function generateDailyInvoices(){
+    public function generateDailyInvoices(): JsonResponse
+    {
         try {
             $invoices = Invoice::getInvoicesWithoutBarCode();
             $count_invoices = 0;
 
-            foreach($invoices as $invoice){
+            foreach ($invoices as $invoice) {
                 $gateway = GatewayController::store($invoice);
 
-                if($gateway){
+                if ($gateway) {
                     $invoice->invoice_barcode = $gateway['barcode'];
                     $invoice->invoice_due_date = $gateway['date'];
                     $invoice->update();
 
-                    $resend = Resend::client(env('RESEND_API_KEY'));
+                    /** @var string $apiKeyForResendService */
+                    $apiKeyForResendService = env('RESEND_API_KEY');
+
+                    $resend = Resend::client($apiKeyForResendService);
 
                     $resend->emails->send([
-                    'from' => 'onboarding@resend.dev',
-                    'to' => $invoice->email,
-                    'subject' => 'Lembrete de pagamento!',
-                    'html' => "<p>Olá, $invoice->name.
+                        'from' => 'onboarding@resend.dev',
+                        'to' => $invoice->email,
+                        'subject' => 'Lembrete de pagamento!',
+                        'html' => "<p>Olá, $invoice->name.
                         Você tem um boleto para pagamento: <strong>$invoice->invoice_barcode</strong>!
-                    </p>"
+                    </p>",
                     ]);
 
                     $count_invoices++;
@@ -121,12 +80,12 @@ class InvoiceController extends Controller
             }
 
             return response()->json([
-                'message' => $count_invoices.' barcodes created!'
+                'message' => $count_invoices.' barcodes created!',
             ], 200);
         } catch (Exception $error) {
             return response()->json([
                 'error' => 'Error. Try again',
-                'message' => $error->getMessage()
+                'message' => $error->getMessage(),
             ], 500);
         }
     }
